@@ -1,10 +1,12 @@
 # SLAWatch
 
-Measures business-hours SLAs, and reports the customer's wait as a separate number because the SLA
-cannot express it.
+A ticket that arrives at Friday 17:00 under a four-business-hour SLA is on time if it is
+answered by Monday 13:00. The customer waited 68 hours. SLAWatch measures business-hours SLAs
+correctly (holidays, time zones, observed days) and reports the customer's wall-clock wait
+beside them, because the SLA number cannot express it. It also shows a result that surprises
+people: tightening the SLA makes the worst case *relatively* worse.
 
-No model. The accuracy problem is calendar arithmetic, plus a decision about which of two correct
-numbers to report.
+The work is calendar arithmetic, plus a decision about which of two correct numbers to report.
 
 ---
 
