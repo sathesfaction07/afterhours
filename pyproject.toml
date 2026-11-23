@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "Business-hours SLA measurement, built around the gap between our effort and the customer's wait"
 requires-python = ">=3.11"
 dependencies = [
+    # zoneinfo reads the OS time-zone database; Windows has none, so without this every
+    # ZoneInfo(...) raises ZoneInfoNotFoundError there (it did, on the first Windows CI run).
+    "tzdata>=2024.1; sys_platform == 'win32'",
     "click>=8.1",
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
