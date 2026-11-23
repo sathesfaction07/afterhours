@@ -1,0 +1,372 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests data
+
+      - name: Test
+        run: pytest -q --cov=sla_watch --cov-report=term-missing
+
+      - name: Doctor runs with no credentials and no network
+        run: sla-watch doctor
+
+      - name: Timezone data is present and complete enough to reason from
+        run: |
+          python - <<'PY'
+          from zoneinfo import ZoneInfo, available_timezones
+          zones = available_timezones()
+          assert len(zones) > 300, f"only {len(zones)} zones -- tzdata looks incomplete"
+          for required in ("Europe/London", "Asia/Tokyo", "Africa/Cairo", "Asia/Jerusalem"):
+              assert required in zones, required
+              ZoneInfo(required)
+          print(f"{len(zones)} zones")
+          PY
+
+      - name: Business time is not translation-invariant, and wall time is
+        run: |
+          python - <<'PY'
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          from sla_watch.calendars import BusinessCalendar, holiday_set
+          from sla_watch.clock import business_elapsed, wall_hours
+
+          LONDON = ZoneInfo("Europe/London")
+          gb = BusinessCalendar(region="GB", zone_name="Europe/London", subdivision="ENG")
+          days = holiday_set(gb, (2026,))
+          span = timedelta(hours=48)
+          monday = datetime(2026, 3, 2, 9, 0, tzinfo=LONDON)
+          friday = datetime(2026, 3, 6, 17, 0, tzinfo=LONDON)
+
+          # The SAME duration, moved four days later.
+          assert business_elapsed(gb, days, monday, monday + span) == 16.0
+          assert business_elapsed(gb, days, friday, friday + span) == 0.0
+          assert wall_hours(monday, monday + span) == wall_hours(friday, friday + span) == 48.0
+          print("16 business hours from Monday, 0 from Friday, 48 wall hours either way")
+          PY
+
+      - name: The amplification arithmetic matches the closed form and brute force
+        run: |
+          python - <<'PY'
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          from sla_watch.amplify import worst_amplification
+          from sla_watch.calendars import UTC, BusinessCalendar, holiday_set
+          from sla_watch.clock import add_business_hours, dead_gap_containing, wall_hours
+
+          LONDON = ZoneInfo("Europe/London")
+          gb = BusinessCalendar(region="GB", zone_name="Europe/London", subdivision="ENG")
+          days = holiday_set(gb, (2026,))
+          friday = datetime(2026, 3, 6, 17, 0, tzinfo=LONDON)
+
+          gap = dead_gap_containing(gb, days, datetime(2026, 3, 6, 18, 0, tzinfo=LONDON))
+          assert gap.hours == 64.0 and gap.reason == "weekend"
+
+          for sla, expected in ((1, 65.0), (2, 33.0), (4, 17.0), (8, 9.0)):
+              wall = wall_hours(friday, add_business_hours(gb, days, friday, sla))
+              assert abs(wall / sla - expected) < 1e-9, (sla, wall / sla)
+              assert abs(wall / sla - worst_amplification(gap.hours, sla)) < 1e-9
+
+          # Tightening the promise 8x barely improves the wait and badly worsens the ratio.
+          tight = wall_hours(friday, add_business_hours(gb, days, friday, 1))
+          loose = wall_hours(friday, add_business_hours(gb, days, friday, 8))
+          assert tight == 65.0 and loose == 72.0
+          assert (1 - tight / loose) < 0.12, "the worst wait must barely improve"
+          assert (tight / 1) / (loose / 8) > 7, "the worst ratio must get much worse"
+
+          # And the reported worst case is really the worst, over every hourly arrival.
+          best, cursor = 0.0, datetime(2026, 1, 1, tzinfo=UTC)
+          while cursor < datetime(2027, 1, 1, tzinfo=UTC):
+              due = add_business_hours(gb, days, cursor, 8.0)
+              if due is not None:
+                  best = max(best, wall_hours(cursor, due) / 8.0)
+              cursor += timedelta(hours=1)
+          assert best == 15.0, best
+          print(f"1 + G/B holds; brute-forced worst 8-hour amplification {best}x")
+          PY
+
+      - name: Same-zone subtraction is not mistaken for elapsed time
+        run: |
+          python - <<'PY'
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
+          from sla_watch.calendars import BusinessCalendar, holiday_set
+          from sla_watch.clock import dead_gap_containing, wall_hours
+          from sla_watch.models import elapsed, elapsed_hours
+
+          LONDON = ZoneInfo("Europe/London")
+          before = datetime(2026, 3, 28, 12, 0, tzinfo=LONDON)
+          after = datetime(2026, 3, 30, 12, 0, tzinfo=LONDON)
+
+          # The language behaviour being defended against: same tzinfo, naive difference.
+          assert before.utcoffset() != after.utcoffset()
+          assert (after - before) == timedelta(hours=48)
+          assert elapsed(before, after) == timedelta(hours=47)
+          assert wall_hours(before, after) == 47.0
+
+          # And it depended on how the timestamp was BUILT, which is why it survived review.
+          a2 = datetime.fromisoformat(before.isoformat())
+          b2 = datetime.fromisoformat(after.isoformat())
+          assert before == a2 and after == b2
+          assert (after - before) != (b2 - a2)
+          assert elapsed_hours(before, after) == elapsed_hours(a2, b2) == 47.0
+
+          # A dead gap spanning a transition: 63 in spring, 65 in autumn, both reported as 64 by
+          # the raw subtraction. The errors run in BOTH directions, so they do not cancel.
+          gb = BusinessCalendar(region="GB", zone_name="Europe/London", subdivision="ENG")
+          days = holiday_set(gb, (2026,))
+          spring = dead_gap_containing(gb, days, datetime(2026, 3, 28, 12, 0, tzinfo=LONDON))
+          autumn = dead_gap_containing(gb, days, datetime(2026, 10, 24, 12, 0, tzinfo=LONDON))
+          ordinary = dead_gap_containing(gb, days, datetime(2026, 3, 7, 12, 0, tzinfo=LONDON))
+          assert (spring.hours, ordinary.hours, autumn.hours) == (63.0, 64.0, 65.0)
+          for gap in (spring, autumn, ordinary):
+              assert (gap.ends_at - gap.starts_at) == timedelta(hours=64)
+          print("63 / 64 / 65 measured, all three 64 under raw subtraction")
+          PY
+
+      - name: DST cannot enter a daytime window, and the two protections are separable
+        run: |
+          python - <<'PY'
+          from collections import Counter
+          from datetime import datetime, time, timedelta
+          from zoneinfo import ZoneInfo, available_timezones
+          from sla_watch.calendars import UTC, BusinessCalendar, transition_risk
+          from sla_watch.tickets import REGISTRY
+
+          def transitions(name, y0, y1):
+              zone = ZoneInfo(name)
+              out, t = [], datetime(y0, 1, 1, tzinfo=UTC)
+              end = datetime(y1 + 1, 1, 1, tzinfo=UTC)
+              prev = t.astimezone(zone).utcoffset()
+              while t < end:
+                  t += timedelta(hours=1)
+                  off = t.astimezone(zone).utcoffset()
+                  if off != prev:
+                      out.append(t.astimezone(zone))
+                      prev = off
+              return out
+
+          zones = sorted(
+              z for z in available_timezones()
+              if "/" in z and not z.startswith(("Etc/", "SystemV"))
+          )
+          allt = []
+          for zone in zones:
+              try:
+                  allt.extend(transitions(zone, 2024, 2028))
+              except Exception:
+                  pass
+
+          assert len(allt) > 500, len(allt)
+          inside = [t for t in allt if t.weekday() < 5 and time(9) <= t.time() < time(17)]
+          assert not inside, f"a transition landed in business hours: {inside[:3]}"
+
+          # "DST is always on a Sunday" is folklore, and the counterexamples must be present.
+          weekdays = Counter(t.strftime("%a") for t in allt)
+          assert set(weekdays) - {"Sun"}, weekdays
+          print(f"{len(allt)} transitions, 0 inside Mon-Fri 09:00-17:00, weekdays {dict(weekdays)}")
+
+          # Every shipped calendar is immune.
+          for calendar in REGISTRY.values():
+              if calendar.zone_name == "Etc/UTC":
+                  continue
+              assert transition_risk(calendar, 2015, 2031).is_immune, calendar.zone_name
+
+          # Two independent protections. Either alone is enough; both gone is not.
+          week7 = frozenset(range(7))
+          def risk(opens, closes, days=None, zone="Europe/London"):
+              kwargs = {"region": "GB", "zone_name": zone, "opens": opens, "closes": closes}
+              if days is not None:
+                  kwargs["working_days"] = days
+              return transition_risk(BusinessCalendar(**kwargs), 2015, 2031)
+
+          assert risk(time(9), time(17), week7).is_immune, "the HOUR protects alone"
+          assert risk(time(0, 30), time(8)).is_immune, "the DAY protects alone"
+          both_gone = risk(time(0, 30), time(8), week7)
+          assert both_gone.inside_window == both_gone.transitions_scanned > 0
+
+          # And the day protection is zone-specific: Israel transitions on a FRIDAY.
+          assert risk(time(0, 30), time(8), None, "Asia/Jerusalem").inside_window > 0
+          print("hour and day protections separated; only the hour is general")
+          PY
+
+      - name: A non-Western week is not an edge case
+        run: |
+          python - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from sla_watch.calendars import GULF_WEEK, WESTERN_WEEK, BusinessCalendar, holiday_set
+          from sla_watch.clock import business_elapsed
+
+          CAIRO = ZoneInfo("Africa/Cairo")
+          correct = BusinessCalendar(region="EG", zone_name="Africa/Cairo", working_days=GULF_WEEK)
+          assumed = BusinessCalendar(region="EG", zone_name="Africa/Cairo", working_days=WESTERN_WEEK)
+          days = holiday_set(correct, (2026,))
+          start = datetime(2026, 5, 7, 16, 0, tzinfo=CAIRO)
+          end = datetime(2026, 5, 10, 10, 0, tzinfo=CAIRO)
+
+          # Same zone, same holidays, same ticket -- only the working week differs, and NEITHER raises.
+          assert business_elapsed(correct, days, start, end) == 2.0
+          assert business_elapsed(assumed, days, start, end) == 9.0
+          print("2 business hours correctly, 9 under a Monday-Friday assumption")
+          PY
+
+      - name: An absent holiday calendar is caught rather than read as a working week
+        run: |
+          python - <<'PY'
+          from datetime import date
+          import holidays
+          from sla_watch.calendars import BusinessCalendar, check_coverage, holiday_set
+          from sla_watch.models import Coverage
+
+          # The library answers False for an uncovered year, which is the whole problem.
+          german = holidays.country_holidays("DE", subdiv="BE")
+          assert date(2026, 12, 25) in german
+          assert date(1989, 12, 25) not in german
+          assert len(holidays.country_holidays("DE", subdiv="BE", years=1989)) == 0
+
+          berlin = BusinessCalendar(region="DE", zone_name="Europe/Berlin", subdivision="BE")
+          assert check_coverage(berlin, (2026,)).coverage is Coverage.COVERED
+          out_of_range = check_coverage(berlin, (1989,))
+          assert out_of_range.coverage is Coverage.YEAR_OUT_OF_RANGE
+          assert "seven-day working week" in out_of_range.detail
+
+          # A missing subdivision is a SMALLER set, not an error.
+          national = BusinessCalendar(region="GB", zone_name="Europe/London")
+          england = BusinessCalendar(region="GB", zone_name="Europe/London", subdivision="ENG")
+          assert check_coverage(national, (2026,)).coverage is Coverage.SUBDIVISION_MISSING
+          assert len(holiday_set(national, (2026,))) < len(holiday_set(england, (2026,)))
+
+          # An unsupported region raises, which is the one safe failure.
+          assert check_coverage(
+              BusinessCalendar(region="XX", zone_name="Etc/UTC"), (2026,)
+          ).coverage is Coverage.UNSUPPORTED_REGION
+
+          # The dates this corpus depends on. A library upgrade can change a PAST year.
+          assert date(2026, 4, 3) in holiday_set(england, (2026,)), "Good Friday"
+          assert date(2026, 5, 4) in holiday_set(england, (2026,)), "Early May bank holiday"
+          print("all four coverage outcomes distinguished")
+          PY
+
+      - name: The shipped corpus produces the documented figures
+        run: |
+          sla-watch report --sliced -o /tmp/out || true
+          python - <<'PY'
+          import json
+          payload = json.load(open("/tmp/out/report.json"))
+
+          assert payload["tickets"] == 114
+          assert len(payload["problems"]) == 2
+          assert payload["is_clean"] is False
+          assert payload["counts"]["met_with_long_wait"] == 9
+          assert payload["counts"]["no_calendar"] == 5
+          assert payload["refused"] == 8
+          assert payload["worst_amplification"] > 40
+
+          coverages = {r["coverage"] for r in payload["regions"]}
+          assert coverages == {
+              "covered", "year_out_of_range", "subdivision_missing", "unsupported_region"
+          }, coverages
+
+          regions = {r["region"]: r for r in payload["regions"]}
+
+          # A refused region reports null, not a perfect score. `all([])` is True.
+          for key in ("xx", "de_archive", "uk_national"):
+              assert regions[key]["compliance"] is None, key
+              assert regions[key]["decided"] == 0
+              assert regions[key]["looks_perfect"] is False
+
+          # And the signature the project exists to surface.
+          perfect = payload["regions_looking_perfect"]
+          assert perfect, "no region reports full compliance with a long wait"
+          assert payload["compliance"] < 1.0, "the aggregate must differ from the parts"
+          for key in perfect:
+              assert regions[key]["compliance"] == 1.0
+              assert regions[key]["hidden_long_waits"] >= 1
+
+          # The threshold is derived per calendar, not a constant.
+          assert abs(regions["jp"]["threshold"] - 168 / 45) < 1e-9
+          assert abs(regions["gb"]["threshold"] - 168 / 40) < 1e-9
+
+          # The worst customer experience in the corpus is recorded as a SUCCESS.
+          worst = max(
+              (r for r in payload["results"] if r["amplification"] is not None),
+              key=lambda r: r["amplification"],
+          )
+          assert worst["verdict"] == "met_with_long_wait", worst
+          print(f"compliance {payload['compliance']:.3f}; {len(perfect)} regions look finished; "
+                f"worst {worst['amplification']:.1f}x is a {worst['verdict']}")
+          PY
+
+      - name: check gates on what is fixable and not on the world
+        run: |
+          ! sla-watch check
+          sla-watch check | grep -q 'unreadable rows: 2'
+          sla-watch check | grep -q 'CONFIGURATION gap'
+          sla-watch check | grep -q 'Friday and Saturday'
+          sla-watch check | grep -q 'Reported and NOT failed'
+          sla-watch check | grep -q 'Friday afternoon gets switched off'
+          echo "gated on the rows and the calendars"
+
+      - name: a long wait alone does not fail the gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          Path("/tmp/friday.jsonl").write_text(
+              json.dumps({
+                  "ticket_id": "FRI-1", "region": "gb", "sla_business_hours": 8,
+                  "created_at": "2026-03-06T16:00:00+00:00",
+                  "resolved_at": "2026-03-09T10:00:00+00:00",
+              }) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          SW_TICKETS=/tmp/friday.jsonl sla-watch check
+          SW_TICKETS=/tmp/friday.jsonl sla-watch check | grep -q 'met with a long wait: 1'
+          SW_TICKETS=/tmp/friday.jsonl sla-watch check | grep -q PASS
+          echo "a kept promise with a weekend inside it does not gate"
+
+      - name: amplify reports the refuted hypothesis rather than burying it
+        run: |
+          sla-watch amplify | grep -q '1 + G/B'
+          sla-watch amplify | grep -q 'shut on arrival'
+          sla-watch amplify | grep -q 'is not the driver'
+          sla-watch amplify | grep -q 'DEADLINE WINDOW'
+          sla-watch amplify | grep -q 'improves the worst WAIT by'
+          echo "the cohort table ships with the correction attached"
+
+      - name: the remaining commands publish their reasoning
+        run: |
+          sla-watch transitions | grep -q 'not a result of careful coding'
+          sla-watch transitions | grep -q 'does not generalise'
+          sla-watch gaps | grep -q 'longest weekend            65h'
+          sla-watch gaps | grep -q 'property of the calendar'
+          sla-watch overlap | grep -q 'DST CREATES the only overlap'
+          sla-watch queue | grep -q 'many-to-one'
+          sla-watch queue | grep -q 'longest-waiting customer first'
+          sla-watch deadline | grep -q 'translation-invariant'
+          sla-watch explain GB-1006 | grep -q 'no working time was consumed'
+          sla-watch explain GB-1013 | grep -q 'however early'
+          sla-watch report | grep -q 'undefined ratio'
+          echo "all commands explain themselves"

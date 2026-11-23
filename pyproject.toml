@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sla-watch"
+version = "0.1.0"
+description = "Business-hours SLA measurement, built around the gap between our effort and the customer's wait"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    # Holiday data is a FACT, not a decision, and it is genuinely irreproducible: lunar holidays,
+    # legislative changes and observed-shift rules cannot be derived from first principles. Contrast
+    # InitiativeHub, which refuses `dateutil` because its `dayfirst` flag is a DECISION that silently
+    # resolves the ambiguity that project exists to expose. Pinned to a minor range because the
+    # calendar for a PAST year can change between releases, which would change a past SLA answer --
+    # `sla-watch doctor` prints the version and a test asserts the dates this corpus depends on.
+    "holidays>=0.104,<0.200",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+sla-watch = "sla_watch.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF", "PTH", "DTZ"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N806"]
+
+[tool.coverage.run]
+source = ["sla_watch"]
+branch = true
