@@ -133,7 +133,7 @@ union of years across the whole file, which made coverage *contagious*: one migr
 into every region's check, no region's holiday data reaches back that far, and every ticket in the
 dataset was refused. The failure looked like a broken tool rather than one bad row.
 
-### `python-holidays` is a dependency, and `dateutil` was not in InitiativeHub
+### `python-holidays` is a dependency, and `dateutil` was not in Doubletake
 
 Worth stating together, because the two decisions look inconsistent and are not. A holiday list is a
 **fact** that cannot be derived from first principles — lunar holidays, legislative changes,

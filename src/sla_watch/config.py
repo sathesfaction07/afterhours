@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     Pinned rather than defaulting to the wall clock, because an open ticket's elapsed time grows
     with time: a report over a corpus containing one is not reproducible unless the instant it was
-    measured against travels with it. StatusChecker reached the same conclusion for a different
+    measured against travels with it. Vintage reached the same conclusion for a different
     reason -- there the recorded instant said WHEN WE LOOKED, and the same label applies here.
     """
 
@@ -47,4 +47,4 @@ class Settings(BaseSettings):
 
     # No list-typed fields on purpose: Pydantic Settings parses those as JSON, so `SW_X=a,b` would
     # fail with a decode error that reads like a bug in the tool rather than a bad value. The same
-    # note appears in InitiativeHub, for the same reason.
+    # note appears in Doubletake, for the same reason.

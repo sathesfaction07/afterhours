@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sla-watch"
+name = "afterhours"
 version = "0.1.0"
 description = "Business-hours SLA measurement, built around the gap between our effort and the customer's wait"
 requires-python = ">=3.11"
@@ -13,10 +13,10 @@ dependencies = [
     "pydantic-settings>=2.2",
     # Holiday data is a FACT, not a decision, and it is genuinely irreproducible: lunar holidays,
     # legislative changes and observed-shift rules cannot be derived from first principles. Contrast
-    # InitiativeHub, which refuses `dateutil` because its `dayfirst` flag is a DECISION that silently
+    # Doubletake, which refuses `dateutil` because its `dayfirst` flag is a DECISION that silently
     # resolves the ambiguity that project exists to expose. Pinned to a minor range because the
     # calendar for a PAST year can change between releases, which would change a past SLA answer --
-    # `sla-watch doctor` prints the version and a test asserts the dates this corpus depends on.
+    # `afterhours doctor` prints the version and a test asserts the dates this corpus depends on.
     "holidays>=0.104,<0.200",
 ]
 
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-sla-watch = "sla_watch.cli:cli"
+afterhours = "sla_watch.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

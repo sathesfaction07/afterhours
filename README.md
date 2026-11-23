@@ -1,7 +1,7 @@
-# SLAWatch
+# Afterhours
 
 A ticket that arrives at Friday 17:00 under a four-business-hour SLA is on time if it is
-answered by Monday 13:00. The customer waited 68 hours. SLAWatch measures business-hours SLAs
+answered by Monday 13:00. The customer waited 68 hours. Afterhours measures business-hours SLAs
 correctly (holidays, time zones, observed days) and reports the customer's wall-clock wait
 beside them, because the SLA number cannot express it. It also shows a result that surprises
 people: tightening the SLA makes the worst case *relatively* worse.
@@ -72,7 +72,7 @@ Four regions report **100% compliance** while a customer waited 32–33× the pr
 And the single worst customer experience in the corpus — **US-3003 at 43.7×**, 1.5 business hours
 against 66 wall hours — has the verdict `met_with_long_wait`. **It is recorded as a success.**
 
-This is a *different* mechanism from the per-slice hiding in InitiativeHub and StatusChecker, and the
+This is a *different* mechanism from the per-slice hiding in Doubletake and Vintage, and the
 difference matters: there, a finer slice exposed the problem. Here it cannot. Compliance is a
 **projection that discards the wall-clock dimension**, so the information is gone before any grouping
 happens.
@@ -207,7 +207,7 @@ Three tickets, 50 real hours apart, **simultaneous in business time**. A queue o
 business-hours-aged reports them as equally old, so "oldest first" does not serve the
 longest-waiting customer first — and no tie-break computed from business time can fix it.
 
-`sla-watch deadline` shows the same thing from the other side: arrivals at Friday 17:00, Saturday
+`afterhours deadline` shows the same thing from the other side: arrivals at Friday 17:00, Saturday
 10:00 and Sunday 20:00 all share one deadline.
 
 ---
@@ -218,16 +218,16 @@ longest-waiting customer first — and no tie-break computed from business time 
 bash setup.sh                    # re-derives every finding above, including the bug
 source .venv/bin/activate
 
-sla-watch doctor
-sla-watch check                  # exits 1: two unreadable rows, 5 tickets with no calendar
-sla-watch report --sliced        # compliance and experience, per region
-sla-watch amplify                # 1 + G/B, and the cohort table that refuted my hypothesis
-sla-watch deadline               # one promise, waits varying by an order of magnitude
-sla-watch gaps                   # closed stretches, including the 65-hour weekend
-sla-watch transitions            # the DST immunity, derived from tzdata
-sla-watch overlap                # London and Tokyo: 0 shared hours in winter, 1 in summer
-sla-watch queue                  # tickets simultaneous in business time
-sla-watch explain GB-1002        # one ticket, measured both ways
+afterhours doctor
+afterhours check                  # exits 1: two unreadable rows, 5 tickets with no calendar
+afterhours report --sliced        # compliance and experience, per region
+afterhours amplify                # 1 + G/B, and the cohort table that refuted my hypothesis
+afterhours deadline               # one promise, waits varying by an order of magnitude
+afterhours gaps                   # closed stretches, including the 65-hour weekend
+afterhours transitions            # the DST immunity, derived from tzdata
+afterhours overlap                # London and Tokyo: 0 shared hours in winter, 1 in summer
+afterhours queue                  # tickets simultaneous in business time
+afterhours explain GB-1002        # one ticket, measured both ways
 ```
 
 | Command | Exit |
@@ -284,7 +284,7 @@ holiday — and two filler tickets had independently landed on it and on US Elec
 
 ## Scope: What This Deliberately Does Not Do
 
-**Draft escalation emails**, which the brief asks for. BlurbGen already does templated generation with
+**Draft escalation emails**, which the brief asks for. Inkgate already does templated generation with
 a validator and a gate; a drafted email cannot assert in CI.
 
 **A Rich live-updating dashboard**, also asked for. This portfolio carries a logged gap for untested
@@ -296,8 +296,8 @@ are the ones with the problem.
 
 The diligence check found business-day arithmetic, holiday calendars and working-hours logic **absent
 portfolio-wide** (`business_day|business_hour|workday`, `holiday`, `busday`: zero files). tz handling
-exists only in LifecycleTracker, whose `time_in_state` does `total += span.duration` — exact instant
-subtraction with no calendar. StatusChecker's `AgeBound` bounds the *observation*, not a calendar.
+exists only in Meridian, whose `time_in_state` does `total += span.duration` — exact instant
+subtraction with no calendar. Vintage's `AgeBound` bounds the *observation*, not a calendar.
 Nobody projects an interval onto a working calendar.
 
 ---
@@ -325,7 +325,7 @@ real calendars use.
 **Nothing here fixes anything.** The remedies are all outside the tool: an out-of-hours rota, a
 wall-clock SLA for high severity, or an honestly published expectation.
 
-**`python-holidays` is a dependency where InitiativeHub refused `dateutil`.** Not inconsistent: a
+**`python-holidays` is a dependency where Doubletake refused `dateutil`.** Not inconsistent: a
 holiday list is a *fact* that cannot be derived, while `dayfirst` is a *decision* that silently
 resolves the ambiguity that project existed to expose. The cost is that a past year's calendar can
 change between releases, so the version is pinned, printed by `doctor`, carried in every report, and
@@ -346,7 +346,7 @@ SW_LONG_WAIT_MULTIPLE=            # empty means derive it per calendar
 
 `now` is pinned rather than read from the clock because an open ticket's elapsed time grows, so a
 report containing one is not reproducible without the instant it was measured against travelling with
-it. StatusChecker reached the same conclusion for a different reason, and the label is the same: this
+it. Vintage reached the same conclusion for a different reason, and the label is the same: this
 is when we looked.
 
 ---

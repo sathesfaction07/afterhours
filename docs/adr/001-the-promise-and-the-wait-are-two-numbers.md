@@ -100,7 +100,7 @@ Reporting 100% for it turns a refusal into a perfect score.
 shipped corpus four of six measurable regions qualify while the fleet figure is 95.3% — so the
 aggregate would prompt someone to look, and those regions individually look finished.
 
-This is a *different mechanism* from the per-slice hiding in InitiativeHub and StatusChecker, and the
+This is a *different mechanism* from the per-slice hiding in Doubletake and Vintage, and the
 difference is worth stating: there, a finer slice would have exposed the problem. Here it would not.
 The compliance metric is a **projection that discards the wall-clock dimension**, so the information
 is gone before any grouping happens.
@@ -151,5 +151,5 @@ is gone before any grouping happens.
   "we will never know" have different remedies
 - The report is measured against a **pinned** instant rather than the wall clock, because an open
   ticket's elapsed time grows and a report containing one is otherwise not reproducible.
-  StatusChecker reached the same conclusion for a different reason, and the label is the same: this
+  Vintage reached the same conclusion for a different reason, and the label is the same: this
   is when we looked

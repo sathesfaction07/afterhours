@@ -1,4 +1,4 @@
-# SLAWatch — Technical Architecture
+# Afterhours — Technical Architecture
 
 ## Overview
 
@@ -18,7 +18,7 @@ numbers to report.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                          CLI (sla-watch)                                      │
+│                          CLI (afterhours)                                      │
 │                                                                              │
 │  check       EXIT 1 on an unreadable row or an unresolvable calendar, because  │
 │              both are fixable at source. Does NOT fail on a long wait or a     │
@@ -228,7 +228,7 @@ Cutting the promise 8× improves the worst **wait** by **9.7%** and makes the wo
 regions report 100% compliance with a 32–33× wait. The fleet figure is 95.3%, so the aggregate would
 prompt a look and those regions individually look finished.
 
-Distinct from the per-slice hiding in InitiativeHub and StatusChecker: there a finer slice exposed the
+Distinct from the per-slice hiding in Doubletake and Vintage: there a finer slice exposed the
 problem, here it cannot. Compliance is a **projection** that discards the wall-clock dimension.
 
 ### Three: a bug that depended on how the timestamp was spelled
@@ -254,7 +254,7 @@ on weekdays.
 ## Data Flow
 
 ```
-1.  sla-watch report --sliced
+1.  afterhours report --sliced
 2.  load 114 tickets; 2 deliberately broken rows reported by line
       one unreadable JSON line, one naive timestamp
 3.  resolve each region's calendar against ITS OWN ticket years

@@ -407,16 +407,16 @@ Setup complete.
 
   source .venv/bin/activate
 
-  sla-watch doctor
-  sla-watch check                  # exits 1: two unreadable rows, and 5 tickets with no calendar
-  sla-watch report --sliced        # compliance and experience, per region
-  sla-watch amplify                # 1 + G/B, and the cohort table that refuted my hypothesis
-  sla-watch deadline               # one promise, waits varying by an order of magnitude
-  sla-watch gaps                   # the closed stretches, including the 65-hour weekend
-  sla-watch transitions            # the DST immunity, derived from tzdata
-  sla-watch overlap                # London and Tokyo share 0 hours in winter, 1 in summer
-  sla-watch queue                  # tickets simultaneous in business time
-  sla-watch explain GB-1002        # one ticket, measured both ways
+  afterhours doctor
+  afterhours check                  # exits 1: two unreadable rows, and 5 tickets with no calendar
+  afterhours report --sliced        # compliance and experience, per region
+  afterhours amplify                # 1 + G/B, and the cohort table that refuted my hypothesis
+  afterhours deadline               # one promise, waits varying by an order of magnitude
+  afterhours gaps                   # the closed stretches, including the 65-hour weekend
+  afterhours transitions            # the DST immunity, derived from tzdata
+  afterhours overlap                # London and Tokyo share 0 hours in winter, 1 in summer
+  afterhours queue                  # tickets simultaneous in business time
+  afterhours explain GB-1002        # one ticket, measured both ways
 
 `check` fails on unreadable rows and on tickets whose calendar cannot be resolved, because both are
 fixable at source. It does NOT fail on a long wait or a missing creation date: those are properties

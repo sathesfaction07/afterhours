@@ -282,7 +282,7 @@ def transition_risk(
     """Count offset changes falling inside this calendar's working window.
 
     Derived from the host's tzdata at call time rather than a hardcoded list of dates, so the answer
-    stays true as the database is updated. Same approach LifecycleTracker used for its DST tests;
+    stays true as the database is updated. Same approach Meridian used for its DST tests;
     the question here is different -- not "is this local time ambiguous" but "can a transition
     corrupt a working-hours count".
     """

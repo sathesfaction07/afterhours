@@ -29,7 +29,7 @@ jobs:
         run: pytest -q --cov=sla_watch --cov-report=term-missing
 
       - name: Doctor runs with no credentials and no network
-        run: sla-watch doctor
+        run: afterhours doctor
 
       - name: Timezone data is present and complete enough to reason from
         run: |
@@ -270,7 +270,7 @@ jobs:
 
       - name: The shipped corpus produces the documented figures
         run: |
-          sla-watch report --sliced -o /tmp/out || true
+          afterhours report --sliced -o /tmp/out || true
           python - <<'PY'
           import json
           payload = json.load(open("/tmp/out/report.json"))
@@ -320,12 +320,12 @@ jobs:
 
       - name: check gates on what is fixable and not on the world
         run: |
-          ! sla-watch check
-          sla-watch check | grep -q 'unreadable rows: 2'
-          sla-watch check | grep -q 'CONFIGURATION gap'
-          sla-watch check | grep -q 'Friday and Saturday'
-          sla-watch check | grep -q 'Reported and NOT failed'
-          sla-watch check | grep -q 'Friday afternoon gets switched off'
+          ! afterhours check
+          afterhours check | grep -q 'unreadable rows: 2'
+          afterhours check | grep -q 'CONFIGURATION gap'
+          afterhours check | grep -q 'Friday and Saturday'
+          afterhours check | grep -q 'Reported and NOT failed'
+          afterhours check | grep -q 'Friday afternoon gets switched off'
           echo "gated on the rows and the calendars"
 
       - name: a long wait alone does not fail the gate
@@ -342,33 +342,33 @@ jobs:
               encoding="utf-8",
           )
           PY
-          SW_TICKETS=/tmp/friday.jsonl sla-watch check
-          SW_TICKETS=/tmp/friday.jsonl sla-watch check | grep -q 'met with a long wait: 1'
-          SW_TICKETS=/tmp/friday.jsonl sla-watch check | grep -q PASS
+          SW_TICKETS=/tmp/friday.jsonl afterhours check
+          SW_TICKETS=/tmp/friday.jsonl afterhours check | grep -q 'met with a long wait: 1'
+          SW_TICKETS=/tmp/friday.jsonl afterhours check | grep -q PASS
           echo "a kept promise with a weekend inside it does not gate"
 
       - name: amplify reports the refuted hypothesis rather than burying it
         run: |
-          sla-watch amplify | grep -q '1 + G/B'
-          sla-watch amplify | grep -q 'shut on arrival'
-          sla-watch amplify | grep -q 'is not the driver'
-          sla-watch amplify | grep -q 'DEADLINE WINDOW'
-          sla-watch amplify | grep -q 'improves the worst WAIT by'
+          afterhours amplify | grep -q '1 + G/B'
+          afterhours amplify | grep -q 'shut on arrival'
+          afterhours amplify | grep -q 'is not the driver'
+          afterhours amplify | grep -q 'DEADLINE WINDOW'
+          afterhours amplify | grep -q 'improves the worst WAIT by'
           echo "the cohort table ships with the correction attached"
 
       - name: the remaining commands publish their reasoning
         run: |
-          sla-watch transitions | grep -q 'not a result of careful coding'
-          sla-watch transitions | grep -q 'does not generalise'
-          sla-watch gaps | grep -q 'longest weekend            65h'
-          sla-watch gaps | grep -q 'property of the calendar'
-          sla-watch overlap | grep -q 'DST CREATES the only overlap'
-          sla-watch queue | grep -q 'many-to-one'
-          sla-watch queue | grep -q 'longest-waiting customer first'
-          sla-watch deadline | grep -q 'translation-invariant'
-          sla-watch explain GB-1006 | grep -q 'no working time was consumed'
-          sla-watch explain GB-1013 | grep -q 'however early'
-          sla-watch report | grep -q 'undefined ratio'
+          afterhours transitions | grep -q 'not a result of careful coding'
+          afterhours transitions | grep -q 'does not generalise'
+          afterhours gaps | grep -q 'longest weekend            65h'
+          afterhours gaps | grep -q 'property of the calendar'
+          afterhours overlap | grep -q 'DST CREATES the only overlap'
+          afterhours queue | grep -q 'many-to-one'
+          afterhours queue | grep -q 'longest-waiting customer first'
+          afterhours deadline | grep -q 'translation-invariant'
+          afterhours explain GB-1006 | grep -q 'no working time was consumed'
+          afterhours explain GB-1013 | grep -q 'however early'
+          afterhours report | grep -q 'undefined ratio'
           echo "all commands explain themselves"
 
   test-windows:
