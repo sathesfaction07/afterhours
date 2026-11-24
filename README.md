@@ -284,18 +284,17 @@ holiday — and two filler tickets had independently landed on it and on US Elec
 
 ## Scope: What This Deliberately Does Not Do
 
-**Draft escalation emails**, which the brief asks for. Inkgate already does templated generation with
+**Draft escalation emails**, which the project brief asks for. Inkgate already does templated generation with
 a validator and a gate; a drafted email cannot assert in CI.
 
-**A Rich live-updating dashboard**, also asked for. This portfolio carries a logged gap for untested
-UI code. A text table asserts; a live display does not.
+**A Rich live-updating dashboard**, also asked for. UI code is the one thing CI cannot
+assert on. A text table asserts; a live display does not.
 
 **Overnight and 24/7 windows** are rejected rather than supported — which is the honest inverse of the
 finding, since a rota with no dead gap has no amplification problem. The calendars this tool handles
 are the ones with the problem.
 
-The diligence check found business-day arithmetic, holiday calendars and working-hours logic **absent
-portfolio-wide** (`business_day|business_hour|workday`, `holiday`, `busday`: zero files). tz handling
+A survey of the sibling projects found business-day arithmetic, holiday calendars and working-hours logic **absent from all of them** (`business_day|business_hour|workday`, `holiday`, `busday`: zero files). tz handling
 exists only in Meridian, whose `time_in_state` does `total += span.duration` — exact instant
 subtraction with no calendar. Vintage's `AgeBound` bounds the *observation*, not a calendar.
 Nobody projects an interval onto a working calendar.

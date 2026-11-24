@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The brief's worst input is "tickets with no creation date, timezone mismatches, holidays varying by
+The project brief's worst input is "tickets with no creation date, timezone mismatches, holidays varying by
 region". Working through it, the timezone half turned out to be *less* dangerous than expected and
 the holiday half *more*, and one of the wrong answers came from Python rather than from the data.
 

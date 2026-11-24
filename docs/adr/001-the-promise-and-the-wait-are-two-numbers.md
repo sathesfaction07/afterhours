@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The brief asks for "correct business-day calculation across regions". Getting that calculation right
+The project brief asks for "correct business-day calculation across regions". Getting that calculation right
 is necessary and it is not sufficient, because of a property of the quantity being calculated.
 
 Wall-clock elapsed time is a function of two instants. It is **translation-invariant**: shift both
